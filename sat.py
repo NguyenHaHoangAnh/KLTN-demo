@@ -335,11 +335,21 @@ def generateConstraints(n, m, c, task_time, precedence_constraints):
                 if not A_vars.get((j, t + e), 0):
                     clauses.append([-get_var('S', j, t), get_var('A', j, t + e)])
 
-    # Ràng buộc phụ: S(j, t) -> not A(j, t'): t' < t => not S(j, t) or not A(j, t')
+    # # Ràng buộc phụ: S(j, t) -> not A(j, t'): t' < t => not S(j, t) or not A(j, t')
+    # for j in range(1, n + 1):
+    #     for t in range(0, c - task_time[j] + 1):
+    #         for t_2 in range(0, t):
+    #             clauses.append([-get_var('S', j, t), -get_var('A', j, t_2)])
+
     for j in range(1, n + 1):
-        for t in range(0, c - task_time[j] + 1):
-            for t_2 in range(0, t):
-                clauses.append([-get_var('S', j, t), -get_var('A', j, t_2)])
+        for t in range(0, c - 1 + 1):
+            clause = [-get_var('A', j, t)]
+            if t + 1 < c:
+                clause.append(get_var('A', j, t + 1))
+            if t - task_time[j] + 1 >= 0:
+                clause.append(get_var('S', j, t - task_time[j] + 1))
+            if len(clause) > 1:
+                clauses.append(clause)
 
     # (9)
     for (i, j) in precedence_constraints:
