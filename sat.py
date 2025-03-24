@@ -143,6 +143,10 @@ def printAssumption():
     print('[#Var]', len(variables))
     print('[#Cons]', len(clauses))
     print('\n')
+    # print('[ip(j, k)]', ip_jk)
+    # print('\n[ip(j, k, t)]', ip_jkt)
+    # print('\n[A_vars]', A_vars)
+    # print('\n')
 
 def printResult(solutions, best_solution, best_iteration, best_value, time_execution):
     print('\n')
@@ -151,9 +155,6 @@ def printResult(solutions, best_solution, best_iteration, best_value, time_execu
     print('[#SolBB]', best_iteration)
     print('[Time]', round(time_execution, 3), 's')
     print('\n')
-    # print('[ip(j, k)]', ip_jk)
-    # print('\n[ip(j, k, t)]', ip_jkt)
-    # print('\n[A_vars]', A_vars)
     # print('\n[C]', C)
     # print('\n')
     print('[best_solution]')
@@ -186,6 +187,8 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     earliest_start = {j: 0 for j in range(1, n + 1)}
     assigned_workstation = {j: 1 for j in range(1, n + 1)}
     for (i, j) in precedence_constraints:
+        if assigned_workstation[j] > assigned_workstation[i]:
+            continue
         earliest_start[j] = max(earliest_start[j], earliest_start[i] + task_time[i])
         # if task i cannot be assigned to workstation k (start from 1, k++) => task j cannot
         for k in range(1, assigned_workstation[i] + 1):
@@ -201,23 +204,16 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
                 clauses.append([-get_var('X', j, k)])
             assigned_workstation[j] = assigned_workstation[i] + 1
             earliest_start[j] = 0
+        else:
+            assigned_workstation[j] = assigned_workstation[i]
     
     # (11)
-    earliest_start = {j: 0 for j in range(1, n + 1)}
-    assigned_workstation = {j: 1 for j in range(1, n + 1)}
     for (i, j) in precedence_constraints:
-        earliest_start[j] = max(earliest_start[j], earliest_start[i] + task_time[i])
-        # check if task j can be assigned to the same workstation with task i
-        if earliest_start[j] + task_time[j] > c:
-            k = assigned_workstation[i]
-            assigned_workstation[j] = assigned_workstation[i] + 1
-            earliest_start[j] = 0
-        else:
-            for t in range(earliest_start[i], earliest_start[i] + task_time[i] - 1 + 1):
-                k = assigned_workstation[i]
+            for t in range(0, earliest_start[j]):
+                k = assigned_workstation[j]
                 if not ip_jkt.get((j, k, t), 0):
                     ip_jkt[(j, k, t)] = 1
-                    if not ip_jk.get((i, k), 0):
+                    if not ip_jk.get((j, k), 0):
                         clauses.append([-get_var('X', j, k), -get_var('S', j, t)])
 
     # (10)
@@ -225,6 +221,8 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     latest_start = {j: c - task_time[j] for j in range(1, n + 1)}
     _assigned_workstation = {j: m for j in range(1, n + 1)}
     for (i, j) in reversed(precedence_constraints):
+        if _assigned_workstation[i] < _assigned_workstation[j]:
+            continue
         latest_start[i] = min(latest_start[i], latest_start[j] - task_time[i])
         # if task j cannot be assign to workstation k (start from 6, k--) => task i cannot
         for k in range(m, _assigned_workstation[j] - 1, -1):
@@ -240,20 +238,13 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
                 clauses.append([-get_var('X', i, k)])
             _assigned_workstation[i] = _assigned_workstation[j] - 1
             latest_start[i] = c - task_time[i]
+        else:
+            _assigned_workstation[i] = _assigned_workstation[j]
     
     # (11)
-    latest_start = {j: c - task_time[j] for j in range(1, n + 1)}
-    _assigned_workstation = {j: m for j in range(1, n + 1)}
     for (i, j) in reversed(precedence_constraints):
-        latest_start[i] = min(latest_start[i], latest_start[j] - task_time[i])
-        # check if task i can be assigned to the workstation with task j
-        if latest_start[i] < 0:
-            k = _assigned_workstation[j]
-            _assigned_workstation[i] = _assigned_workstation[j] - 1
-            latest_start[i] = c - task_time[i]
-        else:
-            for t in range(latest_start[j], latest_start[j] + task_time[j] + 1):
-                k = _assigned_workstation[j]
+            for t in range(latest_start[i] + 1, c - 1 + 1):
+                k = _assigned_workstation[i]
                 if not ip_jkt.get((i, k, t), 0):
                     ip_jkt[(i, k, t)] = 1
                     if not ip_jk.get((i, k), 0):
@@ -341,13 +332,21 @@ def generateConstraints(n, m, c, task_time, precedence_constraints):
     #         for t_2 in range(0, t):
     #             clauses.append([-get_var('S', j, t), -get_var('A', j, t_2)])
 
+    # for j in range(1, n + 1):
+    #     for t in range(0, c - 1 + 1):
+    #         clause = [-get_var('A', j, t)]
+    #         if t + 1 < c:
+    #             clause.append(get_var('A', j, t + 1))
+    #         if t - task_time[j] + 1 >= 0:
+    #             clause.append(get_var('S', j, t - task_time[j] + 1))
+    #         if len(clause) > 1:
+    #             clauses.append(clause)
+
     for j in range(1, n + 1):
         for t in range(0, c - 1 + 1):
             clause = [-get_var('A', j, t)]
-            if t + 1 < c:
-                clause.append(get_var('A', j, t + 1))
-            if t - task_time[j] + 1 >= 0:
-                clause.append(get_var('S', j, t - task_time[j] + 1))
+            for t_prime in range(max(0, t - task_time[j] + 1), t + 1):
+                clause.append(get_var('S', j, t_prime))
             if len(clause) > 1:
                 clauses.append(clause)
 
