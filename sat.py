@@ -153,7 +153,7 @@ def printResult(solutions, best_solution, best_iteration, best_value, time_execu
     print('[Peak]', best_value)
     print('[#Sol]', len(solutions))
     print('[#SolBB]', best_iteration)
-    print('[Time]', round(time_execution, 3), 's')
+    print('[Time]', round(time_execution, 3), 's - real time:', time_execution, 's')
     print('\n')
     # print('\n[C]', C)
     # print('\n')
@@ -189,7 +189,10 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     for (i, j) in precedence_constraints:
         if assigned_workstation[j] > assigned_workstation[i]:
             continue
-        earliest_start[j] = max(earliest_start[j], earliest_start[i] + task_time[i])
+        elif assigned_workstation[j] < assigned_workstation[i]:
+            earliest_start[j] = earliest_start[i] + task_time[i]
+        else:
+            earliest_start[j] = max(earliest_start[j], earliest_start[i] + task_time[i])
         # if task i cannot be assigned to workstation k (start from 1, k++) => task j cannot
         for k in range(1, assigned_workstation[i] + 1):
             # print('[ip_jk[(i, k)]]', (i, k), ip_jk.get((i, k), 0))
@@ -209,12 +212,12 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     
     # (11)
     for (i, j) in precedence_constraints:
-            for t in range(0, earliest_start[j]):
-                k = assigned_workstation[j]
-                if not ip_jkt.get((j, k, t), 0):
-                    ip_jkt[(j, k, t)] = 1
-                    if not ip_jk.get((j, k), 0):
-                        clauses.append([-get_var('X', j, k), -get_var('S', j, t)])
+        for t in range(0, earliest_start[j]):
+            k = assigned_workstation[j]
+            if not ip_jkt.get((j, k, t), 0):
+                ip_jkt[(j, k, t)] = 1
+                if not ip_jk.get((j, k), 0):
+                    clauses.append([-get_var('X', j, k), -get_var('S', j, t)])
 
     # (10)
     # Update latest_start and assigned_workstation based on precedence_constraints
@@ -223,7 +226,10 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     for (i, j) in reversed(precedence_constraints):
         if _assigned_workstation[i] < _assigned_workstation[j]:
             continue
-        latest_start[i] = min(latest_start[i], latest_start[j] - task_time[i])
+        elif _assigned_workstation[i] > _assigned_workstation[j]:
+            latest_start[i] = latest_start[j] - task_time[i]
+        else:
+            latest_start[i] = min(latest_start[i], latest_start[j] - task_time[i])
         # if task j cannot be assign to workstation k (start from 6, k--) => task i cannot
         for k in range(m, _assigned_workstation[j] - 1, -1):
             # print('[ip_jk[(i, k)]]', (j, k), ip_jk.get((j, k), 0))
@@ -243,12 +249,12 @@ def preConstraints(n, m, c, task_time, precedence_constraints):
     
     # (11)
     for (i, j) in reversed(precedence_constraints):
-            for t in range(latest_start[i] + 1, c - 1 + 1):
-                k = _assigned_workstation[i]
-                if not ip_jkt.get((i, k, t), 0):
-                    ip_jkt[(i, k, t)] = 1
-                    if not ip_jk.get((i, k), 0):
-                        clauses.append([-get_var('X', i, k), -get_var('S', i, t)])
+        for t in range(latest_start[i] + 1, c - 1 + 1):
+            k = _assigned_workstation[i]
+            if not ip_jkt.get((i, k, t), 0):
+                ip_jkt[(i, k, t)] = 1
+                if not ip_jk.get((i, k), 0):
+                    clauses.append([-get_var('X', i, k), -get_var('S', i, t)])
 
     # (12)
     for j in range(1, n + 1):
@@ -395,17 +401,17 @@ def computeSolutionValue(n, m, c, solution):
     
     return power_peak
 
-def addNewConstraints(n, solution, power_consumption, current_value, solver):
+def addNewConstraints(n, solution, power_consumption, best_value, solver):
     global clauses, C
     for t, power in power_consumption.items():
         tmp = []
         tasks = []
-        if power == current_value:
+        if power >= best_value:
             for j in range(1, n + 1):
                 if get_var('A', j, t) in solution:
                     tmp.append(-get_var('A', j, t))
                     tasks.append(j)
-        if len(tmp) > 0 and tmp not in clauses:
+        if len(tmp) > 1 and tmp not in clauses:
             # print('[tasks]', tasks, '[t]', t, '[(A, 3, 1)]', get_var('A', 3, 1), get_var('A', 3, 1) in solution)
             clauses.append(tmp)
             solver.add_clause(tmp)
@@ -491,7 +497,7 @@ def main():
             best_value = current_value
             best_iteration = iteration
             best_power_consumption = power_consumption
-        addNewConstraints(n, solution, power_consumption, current_value, solver)
+        addNewConstraints(n, solution, power_consumption, best_value, solver)
         solution = satSolver(solver)
         iteration += 1
         end = time.time()
