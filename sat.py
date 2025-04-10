@@ -127,20 +127,11 @@ def printClauses(clauses):
             tmp.append(arr)
     print('[clauses]', tmp)
 
-def getVariables(clauses):
-    global variables
-    for clause in clauses:
-        if isinstance(clause, list):
-            for variable in clause:
-                if abs(variable) not in variables:
-                    variables.append(abs(variable))
-
 def printAssumption():
-    global variables, clauses
-    getVariables(clauses)
+    global clauses
     print('\n')
     # print('[clauses]', printClauses(clauses))
-    print('[#Var]', len(variables))
+    print('[#Var]', var_counter - 1)
     print('[#Cons]', len(clauses))
     print('\n')
     # print('[ip(j, k)]', ip_jk)
@@ -367,7 +358,8 @@ def generateConstraints(n, m, c, task_time, precedence_constraints):
                                 clauses.append([-get_var('X', i, k), -get_var('X', j, k), -get_var('S', i, t_1), -get_var('S', j, t_2)])
 
 def satSolver(solver):
-    global status
+    # global status
+    status = 0
     if solver.solve():
         model = solver.get_model()
         # print('[model]', model)
@@ -381,10 +373,10 @@ def satSolver(solver):
             #     res.append("-" + str(get_key(abs(item))) + ": " + str(item))
         # print('[res]', res)
         status = 1
-        return solution
+        return status, solution
     else:
         status = 0
-        return None
+        return status, None
 
 def computeSolutionValue(n, m, c, solution):
     global power_consumption
@@ -404,19 +396,19 @@ def computeSolutionValue(n, m, c, solution):
 def addNewConstraints(n, solution, power_consumption, best_value, solver):
     global clauses, C
     for t, power in power_consumption.items():
-        tmp = []
         tasks = []
         if power >= best_value:
             for j in range(1, n + 1):
                 if get_var('A', j, t) in solution:
-                    tmp.append(-get_var('A', j, t))
                     tasks.append(j)
-        if len(tmp) > 1 and tmp not in clauses:
-            # print('[tasks]', tasks, '[t]', t, '[(A, 3, 1)]', get_var('A', 3, 1), get_var('A', 3, 1) in solution)
-            clauses.append(tmp)
-            solver.add_clause(tmp)
-            if tasks not in C:
-                C.append(tasks)
+        if len(tasks) > 1 and tasks not in C:
+            C.append(tasks)
+            for t in range(0, c - 1 + 1):
+                tmp = []
+                for j in tasks:
+                    tmp.append(-get_var('A', j, t))
+                clauses.append(tmp)
+                solver.add_clause(tmp)
 
 # Global variables
 ip_jk = {}
@@ -483,7 +475,7 @@ def main():
     for clause in clauses:
         solver.add_clause(clause)
 
-    solution = satSolver(solver)
+    status, solution = satSolver(solver)
     if not status:
         print('No solution')
         return
@@ -498,10 +490,11 @@ def main():
             best_iteration = iteration
             best_power_consumption = power_consumption
         addNewConstraints(n, solution, power_consumption, best_value, solver)
-        solution = satSolver(solver)
+        status, solution = satSolver(solver)
         iteration += 1
         end = time.time()
         if (end - start) > 3600:
+            print('time out')
             break
 
     time_execution = end - start

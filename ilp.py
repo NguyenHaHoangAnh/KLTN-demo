@@ -100,27 +100,6 @@ def readDatasetFile(dataset_number):
     print('[m]', m)
     print('[c]', c)
 
-def printClauses(clauses):
-    tmp = []
-    for clause in clauses:
-        if isinstance(clause, list):
-            arr = []
-            for variable in clause:
-                if variable >= 0:
-                    arr.append(str(get_key(abs(variable))) + ": " + str(variable))
-                else:
-                    arr.append("-" + str(get_key(abs(variable))) + ": " + str(variable))
-            tmp.append(arr)
-    print('[clauses]', tmp)
-
-def getVariables(clauses):
-    global variables
-    for clause in clauses:
-        if isinstance(clause, list):
-            for variable in clause:
-                if abs(variable) not in variables:
-                    variables.append(abs(variable))
-
 def printAssumption(model):
     print('\n')
     print(f"[#Vars] {model.number_of_variables}")
@@ -149,25 +128,6 @@ def printResult(W_max, model, X, S, time_execution):
     print('\n')
     # print('[best_solution]')
     # printSolution(best_solution, best_iteration, best_power_consumption, best_value)
-
-def printSolution(solution, iteration, power_consumption, power_peak):
-    print('[solution ' + str(iteration) + ']')
-    tasks = []
-    for j in range(1, n + 1):
-        for k in range(1, m + 1):
-            if get_var('X', j, k) in solution:
-                for t in range(0, c - task_time[j] + 1):
-                    if get_var('S', j, t) in solution:
-                        tasks.append(Task(j, task_time[j], task_power[j], k, t))
-                        break
-    
-    for task in tasks:
-        if isinstance(task, Task):
-            print('task', task.getId(), ': duration=', task.getDuration(), 'power=', task.getPower(), 'workstation=', task.getWorkstation(), 'start at=', task.getStartAt())
-    print('\n')
-    print('[power_consumption]', power_consumption)
-    print('[power_peak]', power_peak)
-    print('\n')
 
 def generateConstraints(n, m, c, task_time, precedence_constraints, model, X, S, W_max):
     # (1) Hàm mục tiêu: Minimize Wmax
@@ -269,6 +229,8 @@ def main():
         return
     
     time_execution = end - start
+    if time_execution > 3600:
+        print('time out')
     printResult(W_max, model, X, S, time_execution)
 
 main()
