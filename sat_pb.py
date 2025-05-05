@@ -500,7 +500,7 @@ def main():
 
     while status:
         current_value = computeSolutionValue(n, m, c, solution)
-        printSolution(solution, iteration, power_consumption, current_value)
+        # printSolution(solution, iteration, power_consumption, current_value)
         solutions.append(solution)
         if current_value < best_value:
             best_solution = solution
