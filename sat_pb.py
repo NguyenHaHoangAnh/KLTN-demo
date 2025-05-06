@@ -421,7 +421,7 @@ def generatePbConstraints(n, m, c, best_value, task_power, counter):
         for j in range(1, n + 1):
             A_jt.append(get_var('A', j, t))
             w_j.append(task_power[j])
-        pb_constraint = PBEnc.leq(lits=A_jt, weights=w_j, bound=best_value, vpool=vpool)
+        pb_constraint = PBEnc.leq(lits=A_jt, weights=w_j, bound=best_value - 1, vpool=vpool)
         pb_constraints += pb_constraint.clauses
     
     return pb_constraints
@@ -507,7 +507,7 @@ def main():
             best_value = current_value
             best_iteration = iteration
             best_power_consumption = power_consumption
-        pb_constraints = generatePbConstraints(n, m, c, best_value-1, task_power, var_counter)
+        pb_constraints = generatePbConstraints(n, m, c, best_value, task_power, var_counter)
         new_clauses = clauses + pb_constraints
         # print('[new_clauses]', new_clauses)
         # addNewConstraints(n, solution, power_consumption, best_value, solver)
